@@ -1,1 +1,1 @@
-# Desktop-Application-of-Calculation-of-Characteristics-of-Spectrum-and-Background-of-Diffractograms
+# Application-of-Calculating-Characteristics-of-Spectrum-and-Background-of-Diffractograms
