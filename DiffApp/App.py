@@ -17,9 +17,6 @@ def _():
     import polars as pl
     import os
     import sys
-    # sys.path.append(os.path.abspath('pyddt/pyddt/'))
-    # import pyddt
-    # from pyddt import ExpData
     import altair as alt
     from AppModules.file_parser import parse_coordinates
     from AppModules.peaks_search_module import find_global_peaks_and_centers
@@ -344,9 +341,9 @@ def _(pl, simpson):
             differ = end_idx - start_idx
             # print(start_idx, end_idx, differ)
 
-            # peak_data = Base[start_idx:end_idx]
+            peak_data = Base[start_idx:end_idx]
             # igh += differ
-            peak_data = Base[differ*igh:differ*(igh+1)]
+            # peak_data = Base[differ*igh:differ*(igh+1)]
             igh += 1
 
             # print(peak_data)
@@ -355,16 +352,16 @@ def _(pl, simpson):
             x_values = peak_data["x"].to_numpy()
             y_values = peak_data["y"].to_numpy()
             baseline_values = peak_data["Baseline"].to_numpy()
-            # h2_baseline_values = peak_data["Baseline 1/2*h"].to_numpy()
+            h2_baseline_values = (baseline_values + y_values) / 2
 
             # Вычитаем базовую линию из y
             corrected_y = y_values - baseline_values
-            # cory = y_values - h2_baseline_values
+            cory = y_values - h2_baseline_values
             # print(corrected_y)
             # print(cory)
-            # h2_x_values = x_values[cory >=0]
+            h2_x_values = x_values[cory >=0]
             x_values = x_values[corrected_y >=0]
-            # cory = cory[cory >= 0]
+            cory = cory[cory >= 0]
             corrected_y = corrected_y[corrected_y >=0]
             print(len(corrected_y), len(x_values))
 
@@ -376,19 +373,20 @@ def _(pl, simpson):
             # print(area_h)
             # if cory.any() and h2_x_values.any():
             #     area_h = simpson(cory, x=h2_x_values)
-            # area_h = simpson(cory, x=h2_x_values)
+            area_h = simpson(cory, x=h2_x_values)
             # area_h = np.trapz(cory, h2_x_values)
             # area_2 = np.trapz(corrected_y, x_values)
-            # print(area_2)
+            print(area_h)
 
             # Добавляем результат в список
-            peak_areas.append((start_idx, end_idx, area))
+            peak_areas.append((start_idx, end_idx, area, area_h))
 
         # Создаем новый DataFrame с результатами
         result_df = pl.DataFrame({
             "start_x": [x[0] for x in peak_areas],
             "end_x": [x[1] for x in peak_areas],
-            "peak_area": [x[2] for x in peak_areas]
+            "peak_area": [x[2] for x in peak_areas],
+            "peak_area_h2": [x[3] for x in peak_areas]
         })
 
         return result_df
@@ -403,12 +401,12 @@ def _(mo):
 
 @app.cell
 def _(
+    baseline_gr,
     calculate_peak_areas,
     df_global_peaks,
     peaks_window_size,
-    resulting_df,
 ):
-    integ_intensity = calculate_peak_areas(resulting_df, df_global_peaks, wind_size=int(peaks_window_size.value / 2))
+    integ_intensity = calculate_peak_areas(baseline_gr, df_global_peaks, wind_size=int(peaks_window_size.value / 2))
     integ_intensity
     return (integ_intensity,)
 
@@ -644,6 +642,7 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(
     angle_xray,
+    baseline_gr,
     dating_max_integral_intensity,
     dating_max_intensity,
     df_1,
@@ -652,7 +651,6 @@ def _(
     mo,
     np,
     pl,
-    resulting_df,
 ):
     # data = [
     #     {"Номер пика N": 100, "Угол 2θ (°)": 30, "Расстояние между плоскостями решетки": 23, "Интегральная интенсивность (имп / сек)": 25, "Максимальная интенсивность (имп / сек)": 45, "Относительная интегральная интенсивность (%)": 43.3, "Относительная максимальная интенсивность (%)": 67.8, "Уровень доверия R (площадь пика, описывающегося функцией f / площадь пика)": 0.65, "Площадь пика на уровне 1/2*h": 1321.2, "Отношение β (интегральная интенсивность пика / максимальная интенсивность пика)": 0.51}
@@ -663,14 +661,14 @@ def _(
     for idx, row in enumerate(df_global_peaks.iter_rows(), start=1):
         angle = row[0]  # Угол (в градусах)
         distance = angle_xray.value / (2 * np.sin(np.radians(angle) / 2))  # Расчет расстояния между плоскостями
-        max_intensity = df_1.row(by_predicate=(pl.col("x") == row[0]))[1] - resulting_df.row(by_predicate=(pl.col("x") == row[0]))[2] # - baseline_gr.row(by_predicate=(pl.col("x") == row[0]))[2]
+        max_intensity = df_1.row(by_predicate=(pl.col("x") == row[0]))[1] - baseline_gr.row(by_predicate=(pl.col("x") == row[0]))[2] # - resulting_df.row(by_predicate=(pl.col("x") == row[0]))[2] # - baseline_gr.row(by_predicate=(pl.col("x") == row[0]))[2]
         # print(df_1.row(by_predicate=(pl.col("x") == row[0]))[1])
         # print(resulting_df.row(by_predicate=(pl.col("x") == row[0]))[2])
         ratio_max_intensity = max_intensity / dating_max_intensity
         integral_intensity = integ_intensity[idx - 1]['peak_area'][0]
         # print(integ_intensity[idx - 1]['peak_area'][0])
         ratio_integral_intensity = integral_intensity / dating_max_integral_intensity
-        integral_intensity_h2 = -1 # integ_intensity[idx - 1]['area_h2'][0]
+        integral_intensity_h2 = integ_intensity[idx - 1]['peak_area_h2'][0]
         data.append({
             "Номер пика N": idx,
             "Угол 2θ (°)": angle,
@@ -680,8 +678,8 @@ def _(
             "Интегральная интенсивность (имп / сек)": integral_intensity,
             "Относительная интегральная интенсивность (%)": ratio_integral_intensity * 100,
             "Отношение β (интегральная интенсивность пика / максимальная интенсивность пика)": integral_intensity / max_intensity,
-            "Площадь пика на уровне 1/2*h": integral_intensity_h2,
-            "Уровень доверия R (площадь пика, описывающегося функцией f / площадь пика)": -1
+            "Площадь пика на уровне 1/2*h": integral_intensity_h2
+            # "Уровень доверия R (площадь пика, описывающегося функцией f / площадь пика)": -1
         })
 
     # columns = [ {"label": "Angle (°)", "key": "angle"}, {"label": "Diffraction Integral Intensity", "key": "diffraction_integral_intensity"}, {"label": "Diffraction Maximal Intensity", "key": "diffraction_maximal_intensity"}, {"label": "Ratio (Integral / Max)", "key": "ratio"},]
