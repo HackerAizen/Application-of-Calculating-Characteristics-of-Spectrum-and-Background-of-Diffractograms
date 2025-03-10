@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.11.13"
+__generated_with = "0.11.17"
 app = marimo.App(width="medium")
 
 
@@ -10,7 +10,7 @@ def _(mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     import marimo as mo
     import numpy as np
@@ -23,16 +23,15 @@ def _():
     from AppModules.smoothing_module import smooth_and_filter_peaks
     from AppModules.calculate_module import calculate_baseline
     from AppModules.calculate_module import calculate_peak_areas
-    # from scipy.integrate import simpson
     from scipy.signal import find_peaks, peak_widths
-    from scipy.interpolate import UnivariateSpline
+    import json
     return (
-        UnivariateSpline,
         alt,
         calculate_baseline,
         calculate_peak_areas,
         find_global_peaks_and_centers,
         find_peaks,
+        json,
         mo,
         np,
         os,
@@ -60,7 +59,7 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""## Форма ввода параметров. Параметр длины волны вводится пользователем""")
+    mo.md(r"""## Форма ввода параметров. Параметр длины волны вводится пользователем. Гиперпараметры сглаживания также выбираются пользователем""")
     return
 
 
@@ -119,32 +118,7 @@ def _(form_base):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
-        ## Подбор гиперпараметров для сглаживания кривой. Вводится пользователем (для coord.txt оптимально брать размер окна - 12, уровень значимости - 0.05, порядок полинома - 3).
-        ## Для coord_1.txt пытался взять 20, 0.003, 3 соответственно.
-        """
-    )
-    return
-
-
-@app.cell(hide_code=True)
-def _():
-    # smooth_window_size = mo.ui.number(start=5, stop=100, label="Размер окна для сглаживания")
-    # smooth_threshold_val = mo.ui.number(start=0.001, stop=0.95, label="Уровень значимости")
-    # smooth_polyorder_val = mo.ui.number(start=1, stop=25, label="Порядок полинома")
-    # mo.hstack([smooth_window_size, smooth_threshold_val, smooth_polyorder_val])
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(
-        r"""
-        ## Подбор гиперпараметров для выявления пиков. Вводится пользователем (для coord.txt брал глобальные пики окно - 115, все пики - 80, степень полинома - 1).
-        ## Для coord_1.txt пытался взять 155, 110, 2 соответственно.
-        """
-    )
+    mo.md(r"""## Ввод гиперпараметров для выявления пиков. """)
     return
 
 
@@ -165,11 +139,16 @@ def _(mo):
         Максимальная степень полинома для построения базовой линии (целое число)
 
         {wert}
+
+        Сколько k значимых глобальных пиков учитывать?
+
+        {quantity_peaks}
     ''')
         .batch(
             siz_glob=mo.ui.text(),
             siz_peak=mo.ui.text(),
-            wert=mo.ui.text()
+            wert=mo.ui.text(),
+            quantity_peaks=mo.ui.text()
         )
         .form(show_clear_button=True, bordered=False)
     )
@@ -183,19 +162,16 @@ def _(form):
     global_peaks_window_size = int(form.value['siz_glob'])
     peaks_window_size = int(form.value['siz_peak'])
     polinom = int(form.value['wert'])
-    return global_peaks_window_size, peaks_window_size, polinom
+    qunatity_peak_kol = int(form.value['quantity_peaks'])
+    return (
+        global_peaks_window_size,
+        peaks_window_size,
+        polinom,
+        qunatity_peak_kol,
+    )
 
 
 @app.cell(hide_code=True)
-def _():
-    # global_peaks_window_size = mo.ui.number(start=1, stop=450, label="Размер окна для выявления глобальных пиков")
-    # peaks_window_size = mo.ui.number(start=1, stop=300, label="Размер окна для выявления всех пиков")
-    # polinom = mo.ui.number(start=1, stop=11, label="Максимальная степень полиномиальных функций")
-    # mo.hstack([global_peaks_window_size, peaks_window_size, polinom])
-    return
-
-
-@app.cell
 def _(
     f,
     find_global_peaks_and_centers,
@@ -225,25 +201,45 @@ def _(
     return df, df_1, df_global_peaks, df_peaks_all
 
 
-@app.cell
-def _():
-    # df_peaks_all
-    return
-
-
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""## Вывод найденных глобальных пиков с координатами значения угла и интенсивности, рассчитанным центром масс, порядковым индексом пика в polars dataframe, началом и концом промежутка области пика с учетом окна введенного. Далее использовалась идея поиска интегральной интенсивности и расчета базовой линии с помощью взятия среза polars dataframe по промежуткам и дальнейшей работы с ними.""")
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(df_global_peaks):
     df_global_peaks
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
+def _(df_global_peaks, json, mo, pl):
+    tablet_global_peaks = pl.DataFrame(df_global_peaks).to_pandas() # .to_csv(index=False)
+
+    download_tablet_global_peaks_csv = mo.download(
+        data=tablet_global_peaks.to_csv(index=False).encode("utf-8"),
+        filename="info_global_peaks_table.csv",
+        mimetype="text/csv",
+        label="Скачать таблицу с информацией о глобальных пиках в CSV",
+    )
+
+    download_tablet_global_peaks_json = mo.download(
+        data=json.dumps(tablet_global_peaks.to_json()).encode("utf-8"),
+        filename="info_global_peaks_table.json",
+        mimetype="application/json",
+        label="Скачать таблицу с информацией о глобальных пиках в JSON",
+    )
+
+    mo.hstack([download_tablet_global_peaks_csv, download_tablet_global_peaks_json])
+    return (
+        download_tablet_global_peaks_csv,
+        download_tablet_global_peaks_json,
+        tablet_global_peaks,
+    )
+
+
+@app.cell(hide_code=True)
 def _(df_global_peaks, df_peaks_all):
     df_cleaned = df_peaks_all.join(df_global_peaks, on="global_peak_x", how="anti")
     # df_cleaned
@@ -251,16 +247,75 @@ def _(df_global_peaks, df_peaks_all):
 
 
 @app.cell(hide_code=True)
+def _(df_global_peaks, qunatity_peak_kol):
+    df_sel_peaks = df_global_peaks.top_k(qunatity_peak_kol, by="global_peak_y")
+    df_sel_peaks
+    return (df_sel_peaks,)
+
+
+@app.cell(hide_code=True)
+def _(df_sel_peaks, json, mo, pl):
+    tablet_sel_peaks = pl.DataFrame(df_sel_peaks).to_pandas() # .to_csv(index=False)
+
+    download_tablet_sel_peaks_csv = mo.download(
+        data=tablet_sel_peaks.to_csv(index=False).encode("utf-8"),
+        filename="info_k_significant_peaks_table.csv",
+        mimetype="text/csv",
+        label="Скачать таблицу с информацией о k значимых пиках в CSV",
+    )
+
+    download_tablet_sel_peaks_json = mo.download(
+        data=json.dumps(tablet_sel_peaks.to_json()).encode("utf-8"),
+        filename="info_k_significant_peaks_table.json",
+        mimetype="application/json",
+        label="Скачать таблицу с информацией о k значимых пиках в JSON",
+    )
+
+    mo.hstack([download_tablet_sel_peaks_csv, download_tablet_sel_peaks_json])
+    return (
+        download_tablet_sel_peaks_csv,
+        download_tablet_sel_peaks_json,
+        tablet_sel_peaks,
+    )
+
+
+@app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""## Базовая линия обученная на всех данных после сглаживания. Ее вывожу на графики.""")
+    mo.md(r"""## Базовая линия обученная на всех данных после сглаживания.""")
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(calculate_baseline, df_1, pl, polinom):
     baseline_gr = pl.from_pandas(calculate_baseline(df_1, degree=polinom))
     baseline_gr
     return (baseline_gr,)
+
+
+@app.cell(hide_code=True)
+def _(baseline_gr, json, mo, pl):
+    tablet_baseline_gr = pl.DataFrame(baseline_gr).to_pandas() # .to_csv(index=False)
+
+    download_tablet_baseline_gr_csv = mo.download(
+        data=tablet_baseline_gr.to_csv(index=False).encode("utf-8"),
+        filename="info_baseline_gr_table.csv",
+        mimetype="text/csv",
+        label="Скачать таблицу с информацией о базовой линии дифрактограммы в CSV",
+    )
+
+    download_tablet_baseline_gr_json = mo.download(
+        data=json.dumps(tablet_baseline_gr.to_json()).encode("utf-8"),
+        filename="info_baseline_gr_table.json",
+        mimetype="application/json",
+        label="Скачать таблицу с информацией о базовой линии дифрактограммы в JSON",
+    )
+
+    mo.hstack([download_tablet_baseline_gr_csv, download_tablet_baseline_gr_json])
+    return (
+        download_tablet_baseline_gr_csv,
+        download_tablet_baseline_gr_json,
+        tablet_baseline_gr,
+    )
 
 
 @app.cell(hide_code=True)
@@ -275,7 +330,7 @@ def _(mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(
     calculate_baseline,
     df_1,
@@ -333,12 +388,38 @@ def _(
 
 
 @app.cell(hide_code=True)
+def _(json, mo, pl, resulting_df):
+    tablet_baseline_dop = pl.DataFrame(resulting_df).to_pandas() # .to_csv(index=False)
+
+    download_tablet_resulting_df_csv = mo.download(
+        data=tablet_baseline_dop.to_csv(index=False).encode("utf-8"),
+        filename="info_baseline_sep_peak_table.csv",
+        mimetype="text/csv",
+        label="Скачать таблицу с информацией о базовой линии каждого пика в CSV",
+    )
+
+    download_tablet_resulting_df_json = mo.download(
+        data=json.dumps(tablet_baseline_dop.to_json()).encode("utf-8"),
+        filename="info_baseline_sep_peak_table.json",
+        mimetype="application/json",
+        label="Скачать таблицу с информацией о базовой линии каждого пика в JSON",
+    )
+
+    mo.hstack([download_tablet_resulting_df_csv, download_tablet_resulting_df_json])
+    return (
+        download_tablet_resulting_df_csv,
+        download_tablet_resulting_df_json,
+        tablet_baseline_dop,
+    )
+
+
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""## Базовая линия для пиков, которые не вошли в глобальные но могут быть важны""")
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(calculate_baseline, df_1, df_cleaned, pl, polinom):
     res_df = pl.DataFrame()
     for rowbab in df_cleaned.iter_rows(named=True):
@@ -359,16 +440,64 @@ def _(calculate_baseline, df_1, df_cleaned, pl, polinom):
 
 
 @app.cell(hide_code=True)
+def _(json, mo, pl, res_df):
+    tablet_baseline_wert = pl.DataFrame(res_df).to_pandas() # .to_csv(index=False)
+
+    download_tablet_res_df_csv = mo.download(
+        data=tablet_baseline_wert.to_csv(index=False).encode("utf-8"),
+        filename="info_baseline_sep_peak_table.csv",
+        mimetype="text/csv",
+        label="Скачать таблицу с информацией о базовой линии побочных пиков в CSV",
+    )
+
+    download_tablet_res_df_json = mo.download(
+        data=json.dumps(tablet_baseline_wert.to_json()).encode("utf-8"),
+        filename="info_baseline_sep_peak_table.json",
+        mimetype="application/json",
+        label="Скачать таблицу с информацией о базовой линии побочных пиков в JSON",
+    )
+
+    mo.hstack([download_tablet_res_df_csv, download_tablet_res_df_json])
+    return (
+        download_tablet_res_df_csv,
+        download_tablet_res_df_json,
+        tablet_baseline_wert,
+    )
+
+
+@app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""## Просмотр площадей пиков/инетгральной интенсивности каждого из пиков""")
+    mo.md(r"""## Просмотр площадей пиков/интегральной интенсивности каждого из пиков""")
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(baseline_gr, calculate_peak_areas, df_global_peaks, peaks_window_size):
     integ_intensity = calculate_peak_areas(baseline_gr, df_global_peaks, wind_size=int(peaks_window_size / 2))
     integ_intensity
     return (integ_intensity,)
+
+
+@app.cell(hide_code=True)
+def _(integ_intensity, json, mo, pl):
+    tablet_integ = pl.DataFrame(integ_intensity).to_pandas() # .to_csv(index=False)
+
+    download_tablet_integ_csv = mo.download(
+        data=tablet_integ.to_csv(index=False).encode("utf-8"),
+        filename="integ_table.csv",
+        mimetype="text/csv",
+        label="Скачать таблицу с интегральными интенсивностями пиков в CSV",
+    )
+
+    download_tablet_integ_json = mo.download(
+        data=json.dumps(tablet_integ.to_json()).encode("utf-8"),
+        filename="integ_table.json",
+        mimetype="application/json",
+        label="Скачать таблицу с интегральными интенсивностями пиков в JSON",
+    )
+
+    mo.hstack([download_tablet_integ_csv, download_tablet_integ_json])
+    return download_tablet_integ_csv, download_tablet_integ_json, tablet_integ
 
 
 @app.cell(hide_code=True)
@@ -410,14 +539,6 @@ def _(form_gr):
 
 
 @app.cell(hide_code=True)
-def _():
-    # graph_height = mo.ui.number(start=100, stop=3000, label="Значение высоты графика")
-    # graph_width = mo.ui.number(start=100, stop=3000, label="Значение ширины графика")
-    # mo.hstack([graph_width, graph_height])
-    return
-
-
-@app.cell
 def _(alt, df, graph_height, graph_width):
     if df is not None:
         lines111 = (
@@ -428,19 +549,24 @@ def _(alt, df, graph_height, graph_width):
                 height=graph_height
             )
         )
-    (lines111).properties(title=alt.Title(text='Дифрактограмма до обработки'))
-    return (lines111,)
+    tutu = (lines111).properties(title=alt.Title(text='Дифрактограмма до обработки'))
+    tutu
+    return lines111, tutu
 
 
 @app.cell(hide_code=True)
-def _(UnivariateSpline, df_1, pl):
-    splinen = UnivariateSpline(df_1['x'].to_numpy(), df_1['y'].to_numpy(), k=5)
-    baseline115 = splinen(df_1['x'].to_numpy())
-    df118 = df_1.with_columns(pl.Series('Baseline', baseline115))
-    return baseline115, df118, splinen
+def _(mo, tutu):
+    tutu.save('original_diffractogram.png')
+    download_tutu = mo.download(data="original_diffractogram.png", filename="original_diffractogram.png", mimetype="image/png", label="Скачать дифрактограмму до обработки в формате PNG")
+
+    tutu.save('original_diffractogram.svg')
+    download_tutu_svg = mo.download(data="original_diffractogram.svg", filename="original_diffractogram.svg", mimetype="image/svg", label="Скачать дифрактограмму до обработки в формате SVG")
+
+    mo.hstack([download_tutu, download_tutu_svg])
+    return download_tutu, download_tutu_svg
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(
     alt,
     baseline_gr,
@@ -452,15 +578,6 @@ def _(
     graph_width,
 ):
     if df is not None:
-        # lines = (
-        #     alt.Chart(df.to_pandas())
-        #     .mark_line()
-        #     .encode(x="x", y="y").properties(
-        #         width=graph_width.value,
-        #         height=graph_height.value
-        #     )
-        # )
-
         lines_1 = (
             alt.Chart(df_1.to_pandas())
             .mark_line()
@@ -521,9 +638,11 @@ def _(
             )
         )
 
-    (lines_1 + dotted_lines + dotted_lines_1 + text_labels + text_labels_1 + baseline_chart_show).properties(title=alt.Title(text='Дифрактограмма после обработки с помеченными пиками, их центрами тяжести и ее базовой линией'))
+    chart_pupu = (lines_1 + dotted_lines + dotted_lines_1 + text_labels + text_labels_1 + baseline_chart_show).properties(title=alt.Title(text='Дифрактограмма после обработки с помеченными пиками, их центрами тяжести и ее базовой линией'))
+    chart_pupu
     return (
         baseline_chart_show,
+        chart_pupu,
         df_global_peaks_pd,
         dotted_lines,
         dotted_lines_1,
@@ -533,8 +652,20 @@ def _(
     )
 
 
-@app.cell
-def _(alt, baseline_gr, df, df_1, df_global_peaks, graph_height, graph_width):
+@app.cell(hide_code=True)
+def _(chart_pupu, mo):
+    chart_pupu.save('baseline_peak_diffractogram.png')
+    download_chart_pupu = mo.download(data="baseline_peak_diffractogram.png", filename="baseline_peak_diffractogram.png", mimetype="image/png", label="Скачать дифрактограмму с общей базовой линией в формате PNG")
+
+    chart_pupu.save('baseline_peak_diffractogram.svg')
+    download_chart_pupu_svg = mo.download(data="baseline_peak_diffractogram.svg", filename="baseline_peak_diffractogram.svg", mimetype="image/svg", label="Скачать дифрактограмму с общей базовой линией в формате SVG")
+
+    mo.hstack([download_chart_pupu, download_chart_pupu_svg])
+    return download_chart_pupu, download_chart_pupu_svg
+
+
+@app.cell(hide_code=True)
+def _(alt, baseline_gr, df, df_1, df_sel_peaks, graph_height, graph_width):
     if df is not None:
         lines_show = (
             alt.Chart(df_1.to_pandas())
@@ -556,7 +687,7 @@ def _(alt, baseline_gr, df, df_1, df_global_peaks, graph_height, graph_width):
 
         # Пунктирные линии
         dotted_lines_show = (
-            alt.Chart(df_global_peaks.to_pandas())
+            alt.Chart(df_sel_peaks.to_pandas())
             .mark_rule(strokeWidth=1.5, color='red')
             .encode(
                 x=alt.X('global_peak_x:Q', title=''),
@@ -566,7 +697,7 @@ def _(alt, baseline_gr, df, df_1, df_global_peaks, graph_height, graph_width):
 
         # Метки
         text_labels_show = (
-            alt.Chart(df_global_peaks.to_pandas())
+            alt.Chart(df_sel_peaks.to_pandas())
             .mark_text(align='left', dx=5, dy=-5, color='black')
             .encode(
                 x=alt.X('global_peak_x:Q', title=''),
@@ -575,11 +706,30 @@ def _(alt, baseline_gr, df, df_1, df_global_peaks, graph_height, graph_width):
             )
         )
 
-    lines_show + baseline_chart + dotted_lines_show + text_labels_show
-    return baseline_chart, dotted_lines_show, lines_show, text_labels_show
+    chart_goyfull = (lines_show + baseline_chart + dotted_lines_show + text_labels_show).properties(title=alt.Title(text='Дифрактограмма после обработки со значимыми пиками, их центрами тяжести и ее базовой линией'))
+    chart_goyfull
+    return (
+        baseline_chart,
+        chart_goyfull,
+        dotted_lines_show,
+        lines_show,
+        text_labels_show,
+    )
 
 
-@app.cell
+@app.cell(hide_code=True)
+def _(chart_goyfull, mo):
+    chart_goyfull.save('significant_peak_diffractogram.png')
+    download_goyfull = mo.download(data="significant_peak_diffractogram.png", filename="significant_peak_diffractogram.png", mimetype="image/png", label="Скачать дифрактограмму со значимыми пиками в формате PNG")
+
+    chart_goyfull.save('significant_peak_diffractogram.svg')
+    download_goyfull_svg = mo.download(data="significant_peak_diffractogram.svg", filename="significant_peak_diffractogram.svg", mimetype="image/svg", label="Скачать дифрактограмму со значимыми пиками в формате SVG")
+
+    mo.hstack([download_goyfull, download_goyfull_svg])
+    return download_goyfull, download_goyfull_svg
+
+
+@app.cell(hide_code=True)
 def _(
     alt,
     df,
@@ -650,7 +800,7 @@ def _(
             )
         )
 
-    char_final = lines_showff + base_chartiii + dotted_lines_showff + text_labels_showff
+    char_final = (lines_showff + base_chartiii + dotted_lines_showff + text_labels_showff).properties(title=alt.Title(text='Дифрактограмма после обработки c отдельными базовыми линиями для каждого пика'))
     char_final
     return (
         base_chartiii,
@@ -665,7 +815,19 @@ def _(
     )
 
 
-@app.cell
+@app.cell(hide_code=True)
+def _(char_final, mo):
+    char_final.save('chart_sepbaseline_peaks.png')
+    download_char_final = mo.download(data="chart_sepbaseline_peaks.png", filename="chart_sepbaseline_peaks.png", mimetype="image/png", label="Скачать дифрактограмму с baseline под каждым пиком в формате PNG")
+
+    char_final.save('chart_sepbaseline_peaks.svg')
+    download_char_final_svg = mo.download(data="chart_sepbaseline_peaks.svg", filename="chart_sepbaseline_peaks.svg", mimetype="image/png", label="Скачать дифрактограмму с baseline под каждым пиком в формате SVG")
+
+    mo.hstack([download_char_final, download_char_final_svg])
+    return download_char_final, download_char_final_svg
+
+
+@app.cell(hide_code=True)
 def _(
     alt,
     df,
@@ -740,7 +902,7 @@ def _(
         )
 
     # Combine all charts together
-    final_chart = lines_show_ff + baseline_chart_ff + dotted_lines_show_ff + text_labels_show_ff
+    final_chart = (lines_show_ff + baseline_chart_ff + dotted_lines_show_ff + text_labels_show_ff).properties(title=alt.Title(text='Дифрактограмма после обработки с глобальными пиками, их центрами тяжести и отдельными базовыми линиями на высоте h и 1/2*h'))
 
     # Display the final chart
     final_chart
@@ -757,6 +919,18 @@ def _(
         lines_show_ff,
         text_labels_show_ff,
     )
+
+
+@app.cell(hide_code=True)
+def _(final_chart, mo):
+    final_chart.save('chart_h_sepbaseline_peaks.png')
+    download_final_chart = mo.download(data="chart_h_sepbaseline_peaks.png", filename="chart_h_sepbaseline_peaks.png", mimetype="image/png", label="Скачать дифрактограмму с baseline на уровнях h и 1/2*h в формате PNG")
+
+    final_chart.save('chart_h_sepbaseline_peaks.svg')
+    download_final_chart_svg = mo.download(data="chart_h_sepbaseline_peaks.svg", filename="chart_h_sepbaseline_peaks.svg", mimetype="image/png", label="Скачать дифрактограмму с baseline на уровнях h и 1/2*h в формате SVG")
+
+    mo.hstack([download_final_chart, download_final_chart_svg])
+    return download_final_chart, download_final_chart_svg
 
 
 @app.cell(hide_code=True)
@@ -840,8 +1014,6 @@ def _(
             # "Уровень доверия R (площадь пика, описывающегося функцией f / площадь пика)": -1
         })
 
-    # columns = [ {"label": "Angle (°)", "key": "angle"}, {"label": "Diffraction Integral Intensity", "key": "diffraction_integral_intensity"}, {"label": "Diffraction Maximal Intensity", "key": "diffraction_maximal_intensity"}, {"label": "Ratio (Integral / Max)", "key": "ratio"},]
-
     table = mo.ui.table(data=data)
 
     mo.vstack([table])
@@ -858,6 +1030,76 @@ def _(
         row,
         table,
     )
+
+
+@app.cell(hide_code=True)
+def _(json, mo, pl, table):
+    tablet_ret = pl.DataFrame(table.data).to_pandas() # .to_csv(index=False)
+
+    download_tablet_csv = mo.download(
+        data=tablet_ret.to_csv(index=False).encode("utf-8"),
+        filename="final_table.csv",
+        mimetype="text/csv",
+        label="Скачать таблицу характеристик в CSV",
+    )
+
+    download_tablet_json = mo.download(
+        data=json.dumps(tablet_ret.to_json()).encode("utf-8"),
+        filename="final_table.json",
+        mimetype="application/json",
+        label="Скачать таблицу характеристик в JSON",
+    )
+
+    mo.hstack([download_tablet_csv, download_tablet_json])
+    return download_tablet_csv, download_tablet_json, tablet_ret
+
+
+@app.cell(hide_code=True)
+def _(
+    angle_xray,
+    global_peaks_window_size,
+    graph_height,
+    graph_width,
+    mo,
+    peaks_window_size,
+    pl,
+    polinom,
+    qunatity_peak_kol,
+    smooth_polyorder_val,
+    smooth_threshold_val,
+    smooth_window_size,
+    table,
+):
+    fggg = pl.DataFrame(table.data).to_pandas().to_csv(index=False)
+
+    # Формирование текстового отчета
+    report_content = f"""
+    Описание переменных:
+    - Длина волны: {angle_xray}
+    - Размер сглаживающего окна: {smooth_window_size}
+    - Уровень значимости: {smooth_threshold_val}
+    - Порядок полинома: {smooth_polyorder_val}
+    - Количество значений в окрестности основного пика: {global_peaks_window_size}
+    - Количество значений в окрестности: {peaks_window_size}
+    - Максимальная степень полинома для построения базовой линии: {polinom}
+    - Сколько значимых глобальных пиков учитывать: {qunatity_peak_kol}
+    - Ширина графика: {graph_width}
+    - Высота графика: {graph_height}
+
+    Таблица с характеристиками пиков:
+    {fggg}
+    """
+
+    # Создание элемента для скачивания отчета
+    download_report = mo.download(
+        data=report_content.encode("utf-8"),
+        filename="report.txt",
+        mimetype="text/plain",
+        label="Скачать TXT отчет",
+    )
+
+    mo.hstack([download_report])
+    return download_report, fggg, report_content
 
 
 if __name__ == "__main__":
