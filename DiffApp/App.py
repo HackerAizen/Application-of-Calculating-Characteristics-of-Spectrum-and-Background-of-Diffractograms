@@ -103,11 +103,18 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(form_base):
-    angle_xray = float(form_base.value['wave_length'])
-    smooth_window_size = int(form_base.value['wind_size'])
-    smooth_threshold_val = float(form_base.value['lvl'])
-    smooth_polyorder_val = int(form_base.value['qut'])
+def _(form_base, mo):
+    try:
+        angle_xray = float(form_base.value['wave_length'])
+        smooth_window_size = int(form_base.value['wind_size'])
+        smooth_threshold_val = float(form_base.value['lvl'])
+        smooth_polyorder_val = int(form_base.value['qut'])
+    except TypeError:
+        with mo.redirect_stdout():
+            print("Сначала введите числовые значения в форму параметров выше!")
+    except ValueError:
+        with mo.redirect_stdout():
+            print("Числа с плавающей точкой записываются в форму через точку, а не через запятую!")
     return (
         angle_xray,
         smooth_polyorder_val,
@@ -118,7 +125,7 @@ def _(form_base):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""## Ввод гиперпараметров для выявления пиков. """)
+    mo.md(r"""## Ввод гиперпараметров для выявления пиков.""")
     return
 
 
@@ -158,11 +165,15 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(form):
-    global_peaks_window_size = int(form.value['siz_glob'])
-    peaks_window_size = int(form.value['siz_peak'])
-    polinom = int(form.value['wert'])
-    qunatity_peak_kol = int(form.value['quantity_peaks'])
+def _(form, mo):
+    try:
+        global_peaks_window_size = int(form.value['siz_glob'])
+        peaks_window_size = int(form.value['siz_peak'])
+        polinom = int(form.value['wert'])
+        qunatity_peak_kol = int(form.value['quantity_peaks'])
+    except TypeError:
+        with mo.redirect_stdout():
+            print("Сначала введите числовые значения в форму гиперпараметров выше с корректными типами данных!")
     return (
         global_peaks_window_size,
         peaks_window_size,
@@ -532,9 +543,13 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(form_gr):
-    graph_width = int(form_gr.value['gr_width'])
-    graph_height = int(form_gr.value['gr_h'])
+def _(form_gr, mo):
+    try:
+        graph_width = int(form_gr.value['gr_width'])
+        graph_height = int(form_gr.value['gr_h'])
+    except TypeError:
+        with mo.redirect_stdout():
+            print("Сначала введите числовые значения в форму масштаба графика выше!")
     return graph_height, graph_width
 
 
