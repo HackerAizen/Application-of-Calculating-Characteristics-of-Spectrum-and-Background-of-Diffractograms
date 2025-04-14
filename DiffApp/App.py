@@ -576,14 +576,14 @@ def _(os):
         with tempfile.NamedTemporaryFile(suffix=".svg", delete=False) as tmp:
             # Сохраняем график в SVG
             chart.save(tmp.name)
-        
+
             # Читаем содержимое файла
             with open(tmp.name, 'rb') as f:
                 svg_data = f.read()
-        
+
             # Удаляем временный файл
             os.unlink(tmp.name)
-        
+
         return svg_data
     return BytesIO, StringIO, export_to_png, export_to_svg, tempfile
 
