@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.11.17"
+__generated_with = "0.12.8"
 app = marimo.App(width="medium")
 
 
@@ -554,6 +554,41 @@ def _(form_gr, mo):
 
 
 @app.cell(hide_code=True)
+def _(os):
+    from io import BytesIO, StringIO
+    import tempfile
+
+    # Функция для экспорта в PNG (в памяти)
+    def export_to_png(chart):
+        buffer = BytesIO()
+        chart.save(buffer, format='png')
+        buffer.seek(0)
+        return buffer.getvalue()  # Возвращает байты PNG
+
+    # Функция для экспорта в SVG (в памяти)
+    def export_to_svg(chart):
+        # return chart.to_svg().encode('utf-8-sig')
+        # buffer = StringIO()
+        # chart.save(buffer, format='svg')
+        # buffer.seek(0)
+        # return buffer.getvalue()  # Возвращает строку SVG
+        # def export_to_svg_direct(chart):
+        with tempfile.NamedTemporaryFile(suffix=".svg", delete=False) as tmp:
+            # Сохраняем график в SVG
+            chart.save(tmp.name)
+        
+            # Читаем содержимое файла
+            with open(tmp.name, 'rb') as f:
+                svg_data = f.read()
+        
+            # Удаляем временный файл
+            os.unlink(tmp.name)
+        
+        return svg_data
+    return BytesIO, StringIO, export_to_png, export_to_svg, tempfile
+
+
+@app.cell(hide_code=True)
 def _(alt, df, graph_height, graph_width):
     if df is not None:
         lines111 = (
@@ -570,12 +605,12 @@ def _(alt, df, graph_height, graph_width):
 
 
 @app.cell(hide_code=True)
-def _(mo, tutu):
-    tutu.save('original_diffractogram.png')
-    download_tutu = mo.download(data="original_diffractogram.png", filename="original_diffractogram.png", mimetype="image/png", label="Скачать дифрактограмму до обработки в формате PNG")
+def _(export_to_png, export_to_svg, mo, tutu):
+    # tutu.save('original_diffractogram.png') "original_diffractogram.png"
+    download_tutu = mo.download(data=lambda: export_to_png(tutu), filename="original_diffractogram.png", mimetype="image/png", label="Скачать дифрактограмму до обработки в формате PNG")
 
-    tutu.save('original_diffractogram.svg')
-    download_tutu_svg = mo.download(data="original_diffractogram.svg", filename="original_diffractogram.svg", mimetype="image/svg", label="Скачать дифрактограмму до обработки в формате SVG")
+    # tutu.save('original_diffractogram.svg') "original_diffractogram.svg"
+    download_tutu_svg = mo.download(data=lambda: export_to_svg(tutu), filename="original_diffractogram.svg", mimetype="image/svg+xml", label="Скачать дифрактограмму до обработки в формате SVG")
 
     mo.hstack([download_tutu, download_tutu_svg])
     return download_tutu, download_tutu_svg
@@ -668,12 +703,12 @@ def _(
 
 
 @app.cell(hide_code=True)
-def _(chart_pupu, mo):
-    chart_pupu.save('baseline_peak_diffractogram.png')
-    download_chart_pupu = mo.download(data="baseline_peak_diffractogram.png", filename="baseline_peak_diffractogram.png", mimetype="image/png", label="Скачать дифрактограмму с общей базовой линией в формате PNG")
+def _(chart_pupu, export_to_png, export_to_svg, mo):
+    # chart_pupu.save('baseline_peak_diffractogram.png') "baseline_peak_diffractogram.png"
+    download_chart_pupu = mo.download(data=lambda: export_to_png(chart_pupu), filename="baseline_peak_diffractogram.png", mimetype="image/png", label="Скачать дифрактограмму с общей базовой линией в формате PNG")
 
-    chart_pupu.save('baseline_peak_diffractogram.svg')
-    download_chart_pupu_svg = mo.download(data="baseline_peak_diffractogram.svg", filename="baseline_peak_diffractogram.svg", mimetype="image/svg", label="Скачать дифрактограмму с общей базовой линией в формате SVG")
+    # chart_pupu.save('baseline_peak_diffractogram.svg') "baseline_peak_diffractogram.svg"
+    download_chart_pupu_svg = mo.download(data=lambda: export_to_svg(chart_pupu), filename="baseline_peak_diffractogram.svg", mimetype="image/svg+xml", label="Скачать дифрактограмму с общей базовой линией в формате SVG")
 
     mo.hstack([download_chart_pupu, download_chart_pupu_svg])
     return download_chart_pupu, download_chart_pupu_svg
@@ -733,12 +768,12 @@ def _(alt, baseline_gr, df, df_1, df_sel_peaks, graph_height, graph_width):
 
 
 @app.cell(hide_code=True)
-def _(chart_goyfull, mo):
-    chart_goyfull.save('significant_peak_diffractogram.png')
-    download_goyfull = mo.download(data="significant_peak_diffractogram.png", filename="significant_peak_diffractogram.png", mimetype="image/png", label="Скачать дифрактограмму со значимыми пиками в формате PNG")
+def _(chart_goyfull, export_to_png, export_to_svg, mo):
+    # chart_goyfull.save('significant_peak_diffractogram.png') "significant_peak_diffractogram.png"
+    download_goyfull = mo.download(data=lambda: export_to_png(chart_goyfull), filename="significant_peak_diffractogram.png", mimetype="image/png", label="Скачать дифрактограмму со значимыми пиками в формате PNG")
 
-    chart_goyfull.save('significant_peak_diffractogram.svg')
-    download_goyfull_svg = mo.download(data="significant_peak_diffractogram.svg", filename="significant_peak_diffractogram.svg", mimetype="image/svg", label="Скачать дифрактограмму со значимыми пиками в формате SVG")
+    # chart_goyfull.save('significant_peak_diffractogram.svg') "significant_peak_diffractogram.svg"
+    download_goyfull_svg = mo.download(data=lambda: export_to_svg(chart_goyfull), filename="significant_peak_diffractogram.svg", mimetype="image/svg+xml", label="Скачать дифрактограмму со значимыми пиками в формате SVG")
 
     mo.hstack([download_goyfull, download_goyfull_svg])
     return download_goyfull, download_goyfull_svg
@@ -831,12 +866,12 @@ def _(
 
 
 @app.cell(hide_code=True)
-def _(char_final, mo):
-    char_final.save('chart_sepbaseline_peaks.png')
-    download_char_final = mo.download(data="chart_sepbaseline_peaks.png", filename="chart_sepbaseline_peaks.png", mimetype="image/png", label="Скачать дифрактограмму с baseline под каждым пиком в формате PNG")
+def _(char_final, export_to_png, export_to_svg, mo):
+    # char_final.save('chart_sepbaseline_peaks.png') "chart_sepbaseline_peaks.png"
+    download_char_final = mo.download(data=lambda: export_to_png(char_final), filename="chart_sepbaseline_peaks.png", mimetype="image/png", label="Скачать дифрактограмму с baseline под каждым пиком в формате PNG")
 
-    char_final.save('chart_sepbaseline_peaks.svg')
-    download_char_final_svg = mo.download(data="chart_sepbaseline_peaks.svg", filename="chart_sepbaseline_peaks.svg", mimetype="image/png", label="Скачать дифрактограмму с baseline под каждым пиком в формате SVG")
+    # char_final.save('chart_sepbaseline_peaks.svg') "chart_sepbaseline_peaks.svg"
+    download_char_final_svg = mo.download(data=lambda: export_to_svg(char_final), filename="chart_sepbaseline_peaks.svg", mimetype="image/svg+xml", label="Скачать дифрактограмму с baseline под каждым пиком в формате SVG")
 
     mo.hstack([download_char_final, download_char_final_svg])
     return download_char_final, download_char_final_svg
@@ -937,12 +972,12 @@ def _(
 
 
 @app.cell(hide_code=True)
-def _(final_chart, mo):
-    final_chart.save('chart_h_sepbaseline_peaks.png')
-    download_final_chart = mo.download(data="chart_h_sepbaseline_peaks.png", filename="chart_h_sepbaseline_peaks.png", mimetype="image/png", label="Скачать дифрактограмму с baseline на уровнях h и 1/2*h в формате PNG")
+def _(export_to_png, export_to_svg, final_chart, mo):
+    # final_chart.save('chart_h_sepbaseline_peaks.png') "chart_h_sepbaseline_peaks.png"
+    download_final_chart = mo.download(data=lambda: export_to_png(final_chart), filename="chart_h_sepbaseline_peaks.png", mimetype="image/png", label="Скачать дифрактограмму с baseline на уровнях h и 1/2*h в формате PNG")
 
-    final_chart.save('chart_h_sepbaseline_peaks.svg')
-    download_final_chart_svg = mo.download(data="chart_h_sepbaseline_peaks.svg", filename="chart_h_sepbaseline_peaks.svg", mimetype="image/png", label="Скачать дифрактограмму с baseline на уровнях h и 1/2*h в формате SVG")
+    # final_chart.save('chart_h_sepbaseline_peaks.svg') "chart_h_sepbaseline_peaks.svg"
+    download_final_chart_svg = mo.download(data=lambda: export_to_svg(final_chart), filename="chart_h_sepbaseline_peaks.svg", mimetype="image/svg+xml", label="Скачать дифрактограмму с baseline на уровнях h и 1/2*h в формате SVG")
 
     mo.hstack([download_final_chart, download_final_chart_svg])
     return download_final_chart, download_final_chart_svg
@@ -1067,6 +1102,12 @@ def _(json, mo, pl, table):
 
     mo.hstack([download_tablet_csv, download_tablet_json])
     return download_tablet_csv, download_tablet_json, tablet_ret
+
+
+@app.cell(hide_code=True)
+def _():
+    #TODO График с подписями несколькими
+    return
 
 
 @app.cell(hide_code=True)
