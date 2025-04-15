@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.12.8"
+__generated_with = "0.12.9"
 app = marimo.App(width="medium")
 
 
@@ -251,9 +251,16 @@ def _(df_global_peaks, json, mo, pl):
 
 
 @app.cell(hide_code=True)
-def _(df_global_peaks, df_peaks_all):
-    df_cleaned = df_peaks_all.join(df_global_peaks, on="global_peak_x", how="anti")
+def _(df_global_peaks, df_peaks_all, mo):
+    try:
+        df_cleaned = df_peaks_all.join(df_global_peaks, on="global_peak_x", how="anti")
     # df_cleaned
+    except TypeError:
+        with mo.redirect_stdout():
+            print("Сначала введите значения в форму выше!")
+    except NameError:
+        with mo.redirect_stdout():
+            print("Сначала введите числовые значения в форму гиперпараметров выше с корректными типами данных!")
     return (df_cleaned,)
 
 
@@ -1054,13 +1061,13 @@ def _(
         data.append({
             "Номер пика N": idx,
             "Угол 2θ (°)": angle,
-            "Расстояние между плоскостями решетки": distance,
-            "Максимальная интенсивность (имп / сек)": max_intensity,
-            "Относительная максимальная интенсивность (%)": ratio_max_intensity * 100,
-            "Интегральная интенсивность (имп^2 / сек^2)": integral_intensity,
-            "Относительная интегральная интенсивность (%)": ratio_integral_intensity * 100,
-            "Отношение β (интегральная интенсивность пика / максимальная интенсивность пика)": integral_intensity / max_intensity,
-            "Площадь пика на уровне 1/2*h": integral_intensity_h2
+            "Расстояние между плоскостями решетки": '%.4f' % distance,
+            "Максимальная интенсивность (имп / сек)": '%.3f' % max_intensity,
+            "Относительная максимальная интенсивность (%)": '%.2f' % (ratio_max_intensity * 100),
+            "Интегральная интенсивность (имп^2 / сек^2)": '%.3f' % integral_intensity,
+            "Относительная интегральная интенсивность (%)": '%.2f' % (ratio_integral_intensity * 100),
+            "Отношение β (интегральная интенсивность пика / максимальная интенсивность пика)": '%.2f' % (integral_intensity / max_intensity),
+            "Площадь пика на уровне 1/2*h": '%.3f' % integral_intensity_h2
             # "Уровень доверия R (площадь пика, описывающегося функцией f / площадь пика)": -1
         })
 
@@ -1105,9 +1112,121 @@ def _(json, mo, pl, table):
 
 
 @app.cell(hide_code=True)
-def _():
-    #TODO График с подписями несколькими
-    return
+def _(
+    alt,
+    baseline_gr,
+    data,
+    df,
+    df_1,
+    df_cleaned,
+    df_global_peaks,
+    graph_height,
+    graph_width,
+    pl,
+):
+    if df is not None:
+        data_cop = pl.DataFrame(data).select(["Угол 2θ (°)", "Расстояние между плоскостями решетки", "Относительная максимальная интенсивность (%)", "Относительная интегральная интенсивность (%)"])
+        data_cop = data_cop.with_columns([
+        pl.lit('(').alias('('),
+        pl.lit(')').alias(')')
+        ])
+
+        data_cop = data_cop.with_columns(pl.concat_str(
+            [
+                pl.col("Угол 2θ (°)"),
+                pl.col("Расстояние между плоскостями решетки"),
+                pl.col("Относительная максимальная интенсивность (%)"),
+                pl.col("Относительная интегральная интенсивность (%)")
+            ],
+            separator="; ",
+        ).alias("Printing string"),
+        )
+        datacop = data_cop.with_columns(pl.concat_str(
+            [
+                pl.col("("),
+                pl.col("Printing string"),
+                pl.col(")")
+            ],
+            separator="",
+        ).alias("Printing string new"),)
+        new_data = pl.concat([df_global_peaks, datacop], how="horizontal")
+        lines_3 = (
+            alt.Chart(df_1.to_pandas())
+            .mark_line()
+            .encode(x=alt.X("x", title='Angle 2θ (°)'), y=alt.Y("y", title='Intensity')).properties(
+                width=graph_width,
+                height=graph_height
+            )
+        )
+
+        # Данные для пунктирных линий и меток
+        df_global_peaks_pd_3 = df_global_peaks.to_pandas()  # Преобразуем в Pandas DataFrame
+
+    # Пунктирные линии
+        dotted_lines_3 = (
+            alt.Chart(df_global_peaks_pd_3)
+            .mark_rule(strokeWidth=2, color='purple')
+            .encode(
+                x=alt.X('global_peak_x:Q', title=''),
+                y=alt.Y('global_peak_y:Q', title='')
+            )
+        )
+
+        dotted_lines_4 = (
+            alt.Chart(df_cleaned.to_pandas())
+            .mark_rule(strokeDash=[15, 15], color='green')
+            .encode(
+                x=alt.X('global_peak_x:Q', title=''),
+                y=alt.Y('global_peak_y:Q', title='')
+            )
+        )
+
+        baseline_chart_show_4 = (
+            alt.Chart(baseline_gr)
+            .mark_line(color='black').encode(
+                x=alt.X('x', title=''),
+                y=alt.Y('Baseline', title='')
+            )
+        )
+
+    # Метки
+        text_labels_4 = (
+            alt.Chart(new_data)
+            .mark_text(align='left', dx=5, dy=-5, color='black')
+            .encode(
+                x=alt.X('global_peak_x:Q', title=''),
+                y=alt.Y('global_peak_y:Q', title=''),
+                text= 'Printing string new:N' # Текст из колонки center_of_mass
+            )
+        )
+
+
+    chart_puppet = (lines_3 + dotted_lines_3 + baseline_chart_show_4 + text_labels_4).properties(title=alt.Title(text='Дифрактограмма после обработки с помеченными пиками, их центрами тяжести и ее базовой линией'))
+    chart_puppet
+    return (
+        baseline_chart_show_4,
+        chart_puppet,
+        data_cop,
+        datacop,
+        df_global_peaks_pd_3,
+        dotted_lines_3,
+        dotted_lines_4,
+        lines_3,
+        new_data,
+        text_labels_4,
+    )
+
+
+@app.cell(hide_code=True)
+def _(chart_puppet, export_to_png, export_to_svg, mo):
+    # final_chart.save('chart_h_sepbaseline_peaks.png') "chart_h_sepbaseline_peaks.png"
+    download_chart_puppet = mo.download(data=lambda: export_to_png(chart_puppet), filename="chart_table_peaks.png", mimetype="image/png", label="Скачать обработанную дифрактограмму в формате PNG")
+
+    # final_chart.save('chart_h_sepbaseline_peaks.svg') "chart_h_sepbaseline_peaks.svg"
+    download_chart_puppet_svg = mo.download(data=lambda: export_to_svg(chart_puppet), filename="chart_table_peaks.svg", mimetype="image/svg+xml", label="Скачать обработанную дифрактограмму в формате SVG")
+
+    mo.hstack([download_chart_puppet, download_chart_puppet_svg])
+    return download_chart_puppet, download_chart_puppet_svg
 
 
 @app.cell(hide_code=True)
